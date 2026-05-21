@@ -1,0 +1,13 @@
+{
+  "name": "deja-vu",
+  "owner": {
+    "name": "yoonjong12"
+  },
+  "plugins": [
+    {
+      "name": "deja-vu",
+      "source": "./",
+      "description": "Selective context preservation across Claude Code compaction — remember what matters, not everything. File-based storage, Haiku subagent-powered memory consolidation."
+    }
+  ]
+}

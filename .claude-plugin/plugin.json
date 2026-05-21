@@ -1,0 +1,11 @@
+{
+  "name": "deja-vu",
+  "version": "0.1.0",
+  "description": "Selective context preservation across Claude Code compaction — remember what matters, not everything. File-based storage, Haiku subagent-powered memory consolidation.",
+  "author": {
+    "name": "yoonjong12",
+    "url": "https://github.com/yoonjong12"
+  },
+  "homepage": "https://github.com/yoonjong12/deja-vu",
+  "license": "MIT"
+}
