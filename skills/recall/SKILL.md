@@ -1,7 +1,7 @@
 ---
 name: recall
-description: "Search past session transcripts for original content. Spawns parallel Haiku subagents to grep through raw JSONL files. Use when compressed memory isn't enough — find exact tables, code, phrasing from past sessions."
-tags: [search, retrieval, haiku, parallel]
+description: "Search past session transcripts for original content. Uses digest sidecars for fast filtering, then targeted Haiku subagent scan. Falls back to full scan when no digests exist."
+tags: [search, retrieval, haiku, parallel, digest]
 ---
 
 # Recall — Session Transcript Search
@@ -19,20 +19,88 @@ Search past session transcripts for original content. Complementary to Dream (co
 
 ## Procedure
 
-### 1. Discover session JSONL files
+### 1. Resolve project
 
 ```bash
 slug=$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-project.sh")
+```
+
+### 2. Check for digests
+
+```bash
+ls -t ~/.deja-vu/$slug/digests/*.md 2>/dev/null
+```
+
+If digest files exist → go to **Step 3a** (filtered search).
+If no digest files → go to **Step 3b** (full scan fallback).
+
+### 3a. Filtered search (digest-powered)
+
+Two-stage approach: filter by digest metadata first, then scan only relevant sessions.
+
+**Stage 1: Filter digests by frontmatter**
+
+For each digest file, read only the frontmatter (first ~10 lines). Extract `keywords` and `topics` fields. Match query terms against these fields.
+
+Ranking: count how many query terms appear in `keywords` + `topics`. Higher overlap = higher rank.
+
+Select top K digests where K ≤ 5.
+
+If zero digests match → fall through to **Step 3b** (full scan).
+
+**Stage 2: Targeted Haiku scan**
+
+Spawn a Haiku subagent with the matched digests and their JSONL paths:
+
+```
+Agent(
+    description="Search session transcripts for: {query}",
+    model="haiku",
+    run_in_background=true,
+    prompt="""
+    Search for content matching: "{query}"
+
+    Matched session digests (ranked by relevance):
+    {for each matched digest, include: session ID, summary, key turns}
+
+    JSONL files to search (only these):
+    {jsonl_path from each matched digest}
+
+    Search strategy:
+    1. Read the digest summaries above to understand each session
+    2. Use the "Key turns" line numbers as starting points in the JSONL
+    3. Read around those line numbers for exact matching content
+    4. Also scan broadly within each JSONL for matches the digest may not have captured
+
+    For each match found, output JSON:
+    [
+      {
+        "session_file": "filename",
+        "match": "the matching content (up to 500 chars)",
+        "context_before": "previous turn summary",
+        "context_after": "next turn summary",
+        "role": "user|assistant",
+        "position": "early|middle|late"
+      }
+    ]
+
+    If no matches, output [].
+    Prioritize exact matches over semantic similarity.
+    """
+)
+```
+
+### 3b. Full scan fallback (no digests)
+
+When no digests exist (pre-0.2.0 data or first sessions before any dream), fall back to full JSONL scan.
+
+```bash
 cwd=$(pwd)
 encoded=$(echo "$cwd" | sed 's|/|-|g')
 ls -t ~/.claude/projects/$encoded/*.jsonl
 ```
 
-List all session JSONLs, sorted by recency.
-
-### 2. Spawn search subagent
-
-Spawn a Haiku subagent with the JSONL file paths and query:
+Spawn a Haiku subagent with all JSONL paths:
 
 ```
 Agent(
@@ -69,7 +137,7 @@ Agent(
 )
 ```
 
-### 3. Present results
+### 4. Present results
 
 After subagent completes, present with session date and context:
 

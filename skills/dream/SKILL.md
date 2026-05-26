@@ -241,7 +241,40 @@ rm -f ~/.deja-vu/$slug/.dream-pending
 rm -f ~/.deja-vu/$slug/pending-session.json
 ```
 
-### 5e: Verify
+### 5e: Generate session digest
+
+Create a digest sidecar for recall optimization. This is a lightweight summary card that speeds up future `/deja-vu recall` searches.
+
+```bash
+mkdir -p ~/.deja-vu/$slug/digests
+```
+
+Write `digests/{YYYY-MM-DD}-{short-id}.md` where short-id = first 8 characters of the session JSONL filename (without extension).
+
+```markdown
+---
+session: {YYYY-MM-DD}-{short-id}
+jsonl: {absolute path to session JSONL}
+timestamp: {epoch seconds}
+topics: [{topic-slug-1}, {topic-slug-2}, ...]
+keywords: {space-separated lowercase terms, 5-15 unique}
+---
+
+## Summary
+{2-3 sentence session summary derived from consolidated signals}
+
+## Key turns
+- L{line_number}: {what happened}
+- L{line_number}: {what happened}
+```
+
+- **keywords**: extract from signal summaries produced in Phase 2. Pick 5-15 distinctive terms. Lowercase, no duplicates.
+- **topics**: from the topic slugs assigned during Phase 3 consolidation.
+- **Key turns**: approximate line numbers from the original JSONL where significant signals occurred.
+
+This step adds no LLM calls — all data is already available from Phases 2-3.
+
+### 5f: Verify
 
 ```bash
 wc -l ~/.deja-vu/$slug/memory/MEMORY.md

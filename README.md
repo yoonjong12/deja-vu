@@ -46,7 +46,7 @@ PreCompact hook saves session JSONL path
   ↓
 PostCompact hook injects memory + "DREAM NOW" directive
   ↓
-Agent runs /deja-vu dream → Haiku subagents compress → you confirm → memory saved
+Agent runs /deja-vu dream → Haiku subagents compress → you confirm → memory + digest saved
 ```
 
 **Manual**:
@@ -61,9 +61,10 @@ Agent runs /deja-vu dream → Haiku subagents compress → you confirm → memor
 | Concept | Meaning |
 |---------|---------|
 | **Hooks** | Python scripts fired on Claude Code events. File I/O only, < 1s. No intelligence here. |
-| **Dream** | 5-phase memory consolidation. Haiku subagents compress session → orchestrator presents draft → you confirm/edit → saved. |
-| **Recall** | On-demand JSONL search. Haiku subagent scans raw transcripts for exact original content. Read-only. |
-| **Memory** | Markdown files under `~/.deja-vu/{slug}/`. project-summary.md + MEMORY.md index + topic files + artifacts. |
+| **Dream** | 5-phase memory consolidation. Haiku subagents compress session → orchestrator presents draft → you confirm/edit → memory + digest saved. |
+| **Recall** | On-demand transcript search. Digest-filtered when available, full-scan fallback otherwise. Read-only. |
+| **Memory** | Markdown files under `~/.deja-vu/{slug}/memory/`. project-summary.md + MEMORY.md index + topic files + artifacts. |
+| **Digest** | Per-session summary card under `~/.deja-vu/{slug}/digests/`. Contains keywords, topics, summary, key turn line numbers. Generated as a Dream byproduct — no extra LLM calls. |
 | **Slug** | Project identifier from `git remote` → `owner-repo`, fallback to path encoding. |
 
 ## Hooks
@@ -83,7 +84,7 @@ PreCompact → save JSONL path
     ↓
 PostCompact → inject memory + DREAM NOW
     ↓
-Dream: ORIENT → GATHER SIGNAL → CONSOLIDATE → PRESENT & CONFIRM → SAVE
+Dream: ORIENT → GATHER SIGNAL → CONSOLIDATE → PRESENT & CONFIRM → SAVE (memory + digest)
     ↓
 SessionStart → load memory on next session
 ```
@@ -94,7 +95,23 @@ SessionStart → load memory on next session
 | GATHER SIGNAL | Parallel Haiku subagents scan overlapping chunks for 6 signal types |
 | CONSOLIDATE | Dedup, build session recap checkboxes + memory diffs |
 | PRESENT & CONFIRM | Show draft — you confirm or edit. Never auto-saves. |
-| SAVE | Write topic files, rebuild MEMORY.md (≤200 lines), cleanup |
+| SAVE | Write topic files, rebuild MEMORY.md (≤200 lines), generate digest, cleanup |
+
+## How Recall Works
+
+Recall uses a two-stage search when digests are available:
+
+```
+/deja-vu recall "auth bug fix"
+    ↓
+Stage 1: Scan digest frontmatter (keywords + topics) → filter to relevant sessions
+    ↓
+Stage 2: Haiku subagent searches only matched session JSONLs, guided by digest key turns
+    ↓
+Present exact matches with surrounding context
+```
+
+When no digests exist (first use or pre-0.2.0 data), falls back to full JSONL scan.
 
 ## Storage
 
@@ -105,6 +122,9 @@ SessionStart → load memory on next session
 │   ├── MEMORY.md               # index (≤200 lines)
 │   ├── {topic-slug}.md         # topic memory files
 │   └── artifacts/{name}.md     # preserved verbatim content
+├── digests/                    # per-session summary cards (v0.2.0+)
+│   ├── 2026-05-26-abc123.md
+│   └── 2026-05-27-def456.md
 ├── pending-session.json        # ephemeral (pre-compact → dream)
 ├── .last-dream                 # epoch timestamp
 └── .dream-pending              # flag file

@@ -1,6 +1,6 @@
 {
   "name": "deja-vu",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Selective context preservation across Claude Code compaction \u2014 remember what matters, not everything.",
   "author": {
     "name": "yoonjong12",
